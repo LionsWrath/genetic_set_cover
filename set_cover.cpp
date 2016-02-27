@@ -6,6 +6,7 @@
 #include <string>
 #include <random>
 #include <utility>
+#include <set>
 
 typedef struct{
     std::vector<int> chromossome;
@@ -21,6 +22,17 @@ class comparison {
     public:
         bool operator() (const individual& lhs, const individual& rhs) const {
             return {lhs.fitness > rhs.fitness};
+        }
+};
+
+//test
+class optComparison {
+    public:
+        bool operator() (const std::pair<int,set>& lhs, const std::pair<int,set>& rhs) const {
+            if (lhs.second.setValues.size() == rhs.second.setValues.size()) 
+                return (lhs.second.weight < rhs.second.weight);
+            else 
+                return (lhs.second.setValues.size() > rhs.second.setValues.size());
         }
 };
 
@@ -109,25 +121,60 @@ void printIndexes(set_index indexes) {
     std::cout << "end" << std::endl;
 }
 
+//Test 
+void optimizeIndividual(individual * ind, data * datasets) {
+     std::priority_queue<std::pair<int,set>, std::vector< std::pair<int,set> >, optComparison> red_set;
+     std::set<int> unique_set;
+     for (int i : ind->chromossome)
+        unique_set.insert(i);
+
+     for (int i : unique_set)
+        red_set.push(std::make_pair(i, datasets->at(i)));
+
+     while (!red_set.empty()) {
+         std::pair<int,set> actual = red_set.top();
+        red_set.pop();
+
+        for (auto i : actual.second.setValues)
+            ind->chromossome.at(i) = actual.first;
+     }
+}
+
+void calculateFitness(data * datasets, individual * ind) {
+    std::set<int> unique_set;
+    int weight = 0;
+    int elements = 0;
+    
+    for (int i : ind->chromossome)
+        unique_set.insert(i);
+
+    for (int i : unique_set) {
+        weight += datasets->at(i).weight;
+        elements += datasets->at(i).setValues.size();
+    }
+    ind->fitness = (elements - 50.0f)*weight;
+}
+
 void createIndividual(individual * new_ind, std::mt19937 * random_generator, set_index * indexes, 
         data * datasets) {
     double weight = 0;
     double elements = 0;
     
     for (int i=0; i<N; i++) {
-        int set_value = indexes->operator[](i)[(*random_generator)() % indexes->operator[](i).size()];
+        int set_value = indexes->at(i)[(*random_generator)() % indexes->at(i).size()];
         new_ind->chromossome.push_back(set_value);
-        weight += datasets->at(i).weight;
-        elements += datasets->at(set_value).setValues.size();
     }
-    new_ind->fitness = (elements - 50.0f)*weight;
+
+    //Test
+    optimizeIndividual(new_ind, datasets);
+    calculateFitness(datasets, new_ind);
 }
 
 void initializePopulation(int size, population_heap * population, std::mt19937 * random_generator, 
         set_index * indexes, data * datasets) {
     for (int i=0; i<size; i++) {
         individual new_ind;
-        createIndividual(&new_ind, random_generator, indexes, datasets);
+        createIndividual(&new_ind, random_generator, indexes, datasets); 
         population->push(new_ind);
     }
 }
@@ -141,16 +188,6 @@ std::pair<individual,individual> chooseParents(population_heap * population) {
     return std::make_pair(par1,par2);
 }
 
-void recalculateFitness(data * datasets, individual * ind) {
-    int weight = 0;
-    int elements = 0;
-    for (int i : ind->chromossome) {
-        weight += datasets->at(i).weight;
-        elements += datasets->at(i).setValues.size();
-    }
-    ind->fitness = (elements - 50.0f)*weight;
-}
-
 void crossover(std::pair<individual, individual> * parents, data * datasets, 
         std::mt19937 * random_generator, std::pair<individual, individual> * children) {
     int k = (*random_generator)() % N;
@@ -158,8 +195,13 @@ void crossover(std::pair<individual, individual> * parents, data * datasets,
         children->first.chromossome.at(k) = parents->second.chromossome[k];
         children->second.chromossome.at(k) = parents->first.chromossome[k];
     }
-    recalculateFitness(datasets, &(children->first));
-    recalculateFitness(datasets, &(children->second));
+
+    //Testing
+    optimizeIndividual(&(children->first), datasets);
+    optimizeIndividual(&(children->second), datasets);
+
+    calculateFitness(datasets, &(children->first));
+    calculateFitness(datasets, &(children->second));
 }
 
 void mutation(std::mt19937 * random_generator, individual * children) {
