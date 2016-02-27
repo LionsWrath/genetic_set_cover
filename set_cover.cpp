@@ -178,7 +178,7 @@ int main() {
     printIndividual(parents.first);
     printIndividual(parents.second);
 
-    std::pair<individual, individual> children = std::make_pair(parents.first, parents.second);
+    std::pair<individual, individual> children(parents);
 
     crossover(&parents, &datasets, &random_generator, &children);
 
