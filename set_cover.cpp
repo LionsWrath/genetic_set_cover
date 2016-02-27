@@ -18,6 +18,7 @@ typedef struct{
 typedef struct {
     std::vector<int> setValues;
     double weight;
+    double fitness;
 } set;
 
 class comparison {
@@ -92,6 +93,8 @@ set_index readFile(std::string filename, data* datasets) {
             p = std::strtok(NULL, " ");  
         } while(p != NULL);
 
+        new_set.fitness = new_set.weight/(double)new_set.setValues.size();
+
         datasets->push_back(new_set);
         insertIndex(&indexes, &new_set, datasets->size()-1);
     }
@@ -162,17 +165,16 @@ void optimizeIndividual(individual * ind, data * datasets) {
 
 void calculateFitness(data * datasets, individual * ind) {
     std::set<int> unique_set;
-    double weight = 0;
-    int elements = 0;
     
     for (int i : ind->chromossome)
         unique_set.insert(i);
 
+    std::cout << "FIT: " << unique_set.size() << " " << ind->chromossome.size() << std::endl;
+
+    ind->fitness = 0;
     for (int i : unique_set) {
-        weight += datasets->at(i).weight;
-        elements += datasets->at(i).setValues.size();
+        ind->fitness += datasets->at(i).fitness;
     }
-    ind->fitness = (elements - 50.0f)*weight;
 }
 
 void createIndividual(individual * new_ind, std::mt19937 * random_generator, set_index * indexes, 
@@ -186,7 +188,7 @@ void createIndividual(individual * new_ind, std::mt19937 * random_generator, set
     }
 
     //Test
-        optimizeIndividual(new_ind, datasets);
+    optimizeIndividual(new_ind, datasets);
     calculateFitness(datasets, new_ind);
 }
 
@@ -246,20 +248,48 @@ void crossover(std::pair<individual, individual> * parents, data * datasets,
     calculateFitness(datasets, &(children->second));
 }
 
-//Can be better -- add opt
-void mutation(std::mt19937 * random_generator, individual * children, set_index * indexes) {
+//Can be better -- not changing
+void mutation(std::mt19937 * random_generator, individual * children, set_index * indexes, data * datasets) {
     if ((*random_generator)() % 100 < (5)) {
         int set_index = (*random_generator)() % N;
         int set_size = indexes->at(set_index).size();
-        children->chromossome.at(set_index) = indexes->at(set_index)[(*random_generator)() % set_size ];
+
+        printIndividual(*children);
+
+        int set_actual = children->chromossome.at(set_index);
+        int set_change = (*random_generator)() % set_size;
+        children->chromossome.at(set_index) = indexes->at(set_index)[ set_change ];
+
+        std::cout << "MUTATE: " << set_index << " FROM: " << set_actual << " TO: " 
+            << indexes->at(set_index)[set_change] << std::endl;
+
+        optimizeIndividual(children, datasets);
+        calculateFitness(datasets, children);
     }
+}
+
+//steady_state management
+void managePopulation(std::pair<individual, individual> * parents, std::pair<individual, individual> * children, 
+        population_heap * population) {
+    population_heap steady_state;
+
+    steady_state.push(parents->first);
+    steady_state.push(parents->second);
+    steady_state.push(children->first);
+    steady_state.push(children->second);
+
+    //steady_state.pop();
+    //steady_state.pop();
+    population->push(steady_state.top());
+    steady_state.pop();
+    population->push(steady_state.top());
+
 }
 
 int main() {
     std::mt19937::result_type seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     std::mt19937::result_type testseed = 1598659863;
-    std::mt19937 random_generator(seed);
-    auto n_dice = std::bind(std::uniform_int_distribution<int>(0,100), random_generator);
+    std::mt19937 random_generator(testseed);
 
     testRandomGenerator(&random_generator, 50);
 
@@ -279,8 +309,8 @@ int main() {
 
         crossover(&parents, &datasets, &random_generator, &children);
 
-        mutation(&random_generator, &(children.first), &indexes);
-        mutation(&random_generator, &(children.second), &indexes);
+        mutation(&random_generator, &(children.first), &indexes, &datasets);
+        mutation(&random_generator, &(children.second), &indexes, &datasets);
 
         std::cout << "Parents>>>>>>>>>>>" << std::endl;
         printIndividual(parents.first);
@@ -292,10 +322,7 @@ int main() {
 
         std::cout << "------------------" << std::endl;
 
-        population.push(children.first);
-        population.push(children.second);
-        //population.push(parents.first);
-        population.push(parents.second);
+        managePopulation(&parents, &children, &population);
 
         i++;
     }
