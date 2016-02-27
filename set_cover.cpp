@@ -200,6 +200,7 @@ int main() {
     //bla bla bla
     //hurr durr github
     //Oh my god this is horrible
+	//vamos ver essa potaria ne...
 	if (mutationRate(N) == true) {
 		std::cout << "aooo vai mutaaa" << std::endl;
 	} else {
