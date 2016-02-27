@@ -121,6 +121,24 @@ void printIndexes(set_index indexes) {
     std::cout << "end" << std::endl;
 }
 
+void testRandomGenerator(std::mt19937 * random_generator, int generations) {
+    for (int i=0; i< generations; i++)
+        std::cout << (*random_generator)() << " ";
+}
+
+double individualWeight(individual * ind, data * datasets) {
+    std::set<int> unique_set;
+    double weight = 0;
+    
+    for (int i : ind->chromossome)
+        unique_set.insert(i);
+
+    for (int i : unique_set) 
+        weight += datasets->at(i).weight;
+
+    return weight;
+}
+
 //Test 
 void optimizeIndividual(individual * ind, data * datasets) {
      std::priority_queue<std::pair<int,set>, std::vector< std::pair<int,set> >, optComparison> red_set;
@@ -142,7 +160,7 @@ void optimizeIndividual(individual * ind, data * datasets) {
 
 void calculateFitness(data * datasets, individual * ind) {
     std::set<int> unique_set;
-    int weight = 0;
+    double weight = 0;
     int elements = 0;
     
     for (int i : ind->chromossome)
@@ -204,47 +222,51 @@ void crossover(std::pair<individual, individual> * parents, data * datasets,
     calculateFitness(datasets, &(children->second));
 }
 
-void mutation(std::mt19937 * random_generator, individual * children) {
-	if ((*random_generator)() % 100 < (1.0f/(float)N)) {
-		//put the mutation here
-	}
+//Can be better -- add opt
+void mutation(std::mt19937 * random_generator, individual * children, set_index * indexes) {
+    if ((*random_generator)() % 100 < (5)) {
+        int set_index = (*random_generator)() % N;
+        int set_size = indexes->at(set_index).size();
+        children->chromossome.at(set_index) = indexes->at(set_index)[(*random_generator)() % set_size ];
+    }
 }
 
 int main() {
     std::mt19937::result_type seed = 125689566;
     std::mt19937 random_generator(seed);
 
+    testRandomGenerator(&random_generator, 50);
+
     data datasets;
     set_index indexes = readFile("test_01.dat", &datasets);
 
-    //std::cout << datasets.size() << std::endl;
-
-    //printDataset(datasets);
-    //printIndexes(indexes);
-
-    //individual ind; 
-    //createIndividual(&ind ,&random_generator, &indexes, &datasets);
-    
-    //printIndividual(ind);  
-   
     population_heap population;
     initializePopulation(500, &population, &random_generator, &indexes, &datasets);
 
-    //std::cout << population.size() << std::endl;
+    int i = 0;
 
-    std::pair<individual, individual> parents = chooseParents(&population);
+    while (i != 1000) {
+        std::pair<individual, individual> parents = chooseParents(&population);
 
-    printIndividual(parents.first);
-    printIndividual(parents.second);
+        std::pair<individual, individual> children(parents);
 
-    std::pair<individual, individual> children(parents);
+        crossover(&parents, &datasets, &random_generator, &children);
 
-    crossover(&parents, &datasets, &random_generator, &children);
+        mutation(&random_generator, &(children.first), &indexes);
+        mutation(&random_generator, &(children.second), &indexes);
 
-    printIndividual(children.first);
-    printIndividual(children.second);
+        printIndividual(children.first);
+        printIndividual(children.second);
 
-    mutation(&random_generator, &(children.first));
-    mutation(&random_generator, &(children.second));
+        population.push(children.first);
+        population.push(children.second);
+        population.push(parents.first);
+        population.push(parents.second);
+
+        i++;
+    }
+
+    individual ind = population.top();
+    std::cout << individualWeight(&(ind), &datasets) << std::endl;
 }
 
