@@ -151,6 +151,16 @@ void crossover(std::pair<individual, individual> * parents, data * datasets,
     }
 }
 
+bool mutationRate(double line) {
+	std::mt19937::result_type seed = time(0);
+	auto dice_rand = std::bind(std::uniform_int_distribution<int>(1,100), std::mt19937(seed));
+	if (dice_rand(seed) <= (1/line * 100)) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
 int main() {
 
     std::mt19937 random_generator(125689566);
@@ -184,6 +194,12 @@ int main() {
 
     printIndividual(children.first);
     printIndividual(children.second);
+
+	if (mutationRate(N) == true) {
+		std::cout << "aooo vai mutaaa" << std::endl;
+	} else {
+		std::cout << "aff nem vai muta" << std::endl;
+	}
 
 }
 
