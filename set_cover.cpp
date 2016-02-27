@@ -74,11 +74,10 @@ set_index readFile(std::string filename, data* datasets) {
         new_set.weight = std::stod(p);
         p = std::strtok(NULL, " ");
         do {
-            std::cout << p << " ";
             new_set.setValues.push_back(atoi(p) - 1);
             p = std::strtok(NULL, " ");  
         } while(p != NULL);
-        std::cout << std::endl;
+
         datasets->push_back(new_set);
         insertIndex(&indexes, &new_set, datasets->size()-1);
     }
@@ -142,8 +141,14 @@ std::pair<individual,individual> chooseParents(population_heap * population) {
     return std::make_pair(par1,par2);
 }
 
-void crossover(std::pair<individual, individual> parents, data * datasets) {
-    
+void crossover(std::pair<individual, individual> * parents, data * datasets, 
+        std::mt19937 * random_generator, std::pair<individual, individual> * children) {
+    int k = (*random_generator)() % N;
+    for (k; k<N; k++) {
+        std::cout << k << std::endl;
+        children->first.chromossome.at(k) = parents->second.chromossome[k];
+        children->second.chromossome.at(k) = parents->first.chromossome[k];
+    }
 }
 
 int main() {
@@ -153,7 +158,7 @@ int main() {
     data datasets;
     set_index indexes = readFile("test_01.dat", &datasets);
 
-    std::cout << datasets.size() << std::endl;
+    //std::cout << datasets.size() << std::endl;
 
     //printDataset(datasets);
     //printIndexes(indexes);
@@ -172,6 +177,13 @@ int main() {
 
     printIndividual(parents.first);
     printIndividual(parents.second);
+
+    std::pair<individual, individual> children = std::make_pair(parents.first, parents.second);
+
+    crossover(&parents, &datasets, &random_generator, &children);
+
+    printIndividual(children.first);
+    printIndividual(children.second);
 
 }
 
