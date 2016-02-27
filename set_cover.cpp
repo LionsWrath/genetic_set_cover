@@ -6,7 +6,6 @@
 #include <string>
 #include <random>
 #include <utility>
-#include <functional>
 
 typedef struct{
     std::vector<int> chromossome;
@@ -153,13 +152,13 @@ void crossover(std::pair<individual, individual> * parents, data * datasets,
 }
 
 bool mutationRate(double line) {
-	std::mt19937::result_type seed = time(0);
-	auto dice_rand = std::bind(std::uniform_int_distribution<int>(1,100), std::mt19937(seed));
-	if (dice_rand(seed) <= (1/line * 100)) {
-		return true;
-	} else {
+	//std::mt19937::result_type seed = time(0);
+	//auto dice_rand = std::bind(std::uniform_int_distribution<int>(1,100), std::mt19937(seed));
+	//if (dice_rand(seed) <= (1/line * 100)) {
+	//	return true;
+	//} else {
 		return false;
-	}
+	//}
 }
 
 int main() {
@@ -197,7 +196,10 @@ int main() {
     printIndividual(children.second);
 
     //awww yisssss modafuckin bread crumbs
-	//que parada chata, parece cu de marimbondo
+    //que parada chata, parece cu de marimbondo
+    //bla bla bla
+    //hurr durr github
+    //Oh my god this is horrible
 	if (mutationRate(N) == true) {
 		std::cout << "aooo vai mutaaa" << std::endl;
 	} else {
