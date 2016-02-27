@@ -141,29 +141,36 @@ std::pair<individual,individual> chooseParents(population_heap * population) {
     return std::make_pair(par1,par2);
 }
 
+void recalculateFitness(data * datasets, individual * ind) {
+    int weight = 0;
+    int elements = 0;
+    for (int i : ind->chromossome) {
+        weight += datasets->at(i).weight;
+        elements += datasets->at(i).setValues.size();
+    }
+    ind->fitness = (elements - 50.0f)*weight;
+}
+
 void crossover(std::pair<individual, individual> * parents, data * datasets, 
         std::mt19937 * random_generator, std::pair<individual, individual> * children) {
     int k = (*random_generator)() % N;
     for (k; k<N; k++) {
-        std::cout << k << std::endl;
         children->first.chromossome.at(k) = parents->second.chromossome[k];
         children->second.chromossome.at(k) = parents->first.chromossome[k];
     }
+    recalculateFitness(datasets, &(children->first));
+    recalculateFitness(datasets, &(children->second));
 }
 
-bool mutationRate(double line) {
-	//std::mt19937::result_type seed = time(0);
-	//auto dice_rand = std::bind(std::uniform_int_distribution<int>(1,100), std::mt19937(seed));
-	//if (dice_rand(seed) <= (1/line * 100)) {
-	//	return true;
-	//} else {
-		return false;
-	//}
+void mutation(std::mt19937 * random_generator, individual * children) {
+	if ((*random_generator)() % 100 < (1.0f/(float)N)) {
+		//put the mutation here
+	}
 }
 
 int main() {
-
-    std::mt19937 random_generator(125689566);
+    std::mt19937::result_type seed = 125689566;
+    std::mt19937 random_generator(seed);
 
     data datasets;
     set_index indexes = readFile("test_01.dat", &datasets);
@@ -173,8 +180,8 @@ int main() {
     //printDataset(datasets);
     //printIndexes(indexes);
 
-    individual ind; 
-    createIndividual(&ind ,&random_generator, &indexes, &datasets);
+    //individual ind; 
+    //createIndividual(&ind ,&random_generator, &indexes, &datasets);
     
     //printIndividual(ind);  
    
@@ -195,17 +202,7 @@ int main() {
     printIndividual(children.first);
     printIndividual(children.second);
 
-    //awww yisssss modafuckin bread crumbs
-    //que parada chata, parece cu de marimbondo
-    //bla bla bla
-    //hurr durr github
-    //Oh my god this is horrible
-	//vamos ver essa potaria ne...
-	if (mutationRate(N) == true) {
-		std::cout << "aooo vai mutaaa" << std::endl;
-	} else {
-		std::cout << "aff nem vai muta" << std::endl;
-	}
-
+    mutation(&random_generator, &(children.first));
+    mutation(&random_generator, &(children.second));
 }
 
