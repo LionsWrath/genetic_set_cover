@@ -195,6 +195,7 @@ int main() {
     printIndividual(children.first);
     printIndividual(children.second);
 
+    //Oh my god this is horrible
 	if (mutationRate(N) == true) {
 		std::cout << "aooo vai mutaaa" << std::endl;
 	} else {
