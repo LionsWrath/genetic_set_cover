@@ -7,6 +7,8 @@
 #include <random>
 #include <utility>
 #include <set>
+#include <chrono>
+#include <functional>
 
 typedef struct{
     std::vector<int> chromossome;
@@ -121,9 +123,9 @@ void printIndexes(set_index indexes) {
     std::cout << "end" << std::endl;
 }
 
-void testRandomGenerator(std::mt19937 * random_generator, int generations) {
+void testRandomGenerator(std::mt19937 * random_generator, int generations) { 
     for (int i=0; i< generations; i++)
-        std::cout << (*random_generator)() << " ";
+        std::cout << " " << (*random_generator)() << " ";
 }
 
 double individualWeight(individual * ind, data * datasets) {
@@ -184,7 +186,7 @@ void createIndividual(individual * new_ind, std::mt19937 * random_generator, set
     }
 
     //Test
-    optimizeIndividual(new_ind, datasets);
+        optimizeIndividual(new_ind, datasets);
     calculateFitness(datasets, new_ind);
 }
 
@@ -206,12 +208,34 @@ std::pair<individual,individual> chooseParents(population_heap * population) {
     return std::make_pair(par1,par2);
 }
 
-void crossover(std::pair<individual, individual> * parents, data * datasets, 
+//One-Point Crossover
+void crossover1(std::pair<individual, individual> * parents, data * datasets, 
         std::mt19937 * random_generator, std::pair<individual, individual> * children) {
     int k = (*random_generator)() % N;
+
+    std::cout << "Random: "<< k << std::endl;
     for (k; k<N; k++) {
         children->first.chromossome.at(k) = parents->second.chromossome[k];
         children->second.chromossome.at(k) = parents->first.chromossome[k];
+    }
+
+    //Testing
+    optimizeIndividual(&(children->first), datasets);
+    optimizeIndividual(&(children->second), datasets);
+
+    calculateFitness(datasets, &(children->first));
+    calculateFitness(datasets, &(children->second));
+}
+
+//Uniform Crossover
+void crossover(std::pair<individual, individual> * parents, data * datasets, 
+        std::mt19937 * random_generator, std::pair<individual, individual> * children) {
+
+    for (int k = 0; k<N; k++) {
+        if ((*random_generator)() % 100 > 49) {
+            children->first.chromossome.at(k) = parents->second.chromossome[k];
+            children->second.chromossome.at(k) = parents->first.chromossome[k]; 
+        }
     }
 
     //Testing
@@ -232,8 +256,10 @@ void mutation(std::mt19937 * random_generator, individual * children, set_index 
 }
 
 int main() {
-    std::mt19937::result_type seed = 125689566;
+    std::mt19937::result_type seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    std::mt19937::result_type testseed = 1598659863;
     std::mt19937 random_generator(seed);
+    auto n_dice = std::bind(std::uniform_int_distribution<int>(0,100), random_generator);
 
     testRandomGenerator(&random_generator, 50);
 
@@ -246,6 +272,7 @@ int main() {
     int i = 0;
 
     while (i != 1000) {
+        std::cout << "cycle: " << i << std::endl;
         std::pair<individual, individual> parents = chooseParents(&population);
 
         std::pair<individual, individual> children(parents);
@@ -255,12 +282,19 @@ int main() {
         mutation(&random_generator, &(children.first), &indexes);
         mutation(&random_generator, &(children.second), &indexes);
 
+        std::cout << "Parents>>>>>>>>>>>" << std::endl;
+        printIndividual(parents.first);
+        printIndividual(parents.second);
+
+        std::cout << "Children>>>>>>>>>>" << std::endl;
         printIndividual(children.first);
         printIndividual(children.second);
 
+        std::cout << "------------------" << std::endl;
+
         population.push(children.first);
         population.push(children.second);
-        population.push(parents.first);
+        //population.push(parents.first);
         population.push(parents.second);
 
         i++;
