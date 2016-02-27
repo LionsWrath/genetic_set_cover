@@ -197,6 +197,7 @@ int main() {
     printIndividual(children.second);
 
     //awww yisssss modafuckin bread crumbs
+	//que parada chata, parece cu de marimbondo
 	if (mutationRate(N) == true) {
 		std::cout << "aooo vai mutaaa" << std::endl;
 	} else {
