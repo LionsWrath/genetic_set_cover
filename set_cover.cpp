@@ -6,6 +6,7 @@
 #include <string>
 #include <random>
 #include <utility>
+#include <functional>
 
 typedef struct{
     std::vector<int> chromossome;
