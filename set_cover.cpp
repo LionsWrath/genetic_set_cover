@@ -5,6 +5,7 @@
 #include <cstring>
 #include <string>
 #include <random>
+#include <utility>
 
 typedef struct{
     std::vector<int> chromossome;
@@ -132,8 +133,17 @@ void initializePopulation(int size, population_heap * population, std::mt19937 *
     }
 }
 
-pair<individual,individual> chooseParents() {
+std::pair<individual,individual> chooseParents(population_heap * population) {
+    individual par1 = population->top();
+    population->pop();
+    individual par2 = population->top();
+    population->pop();
 
+    return std::make_pair(par1,par2);
+}
+
+void crossover(std::pair<individual, individual> parents, data * datasets) {
+    
 }
 
 int main() {
@@ -143,19 +153,25 @@ int main() {
     data datasets;
     set_index indexes = readFile("test_01.dat", &datasets);
 
+    std::cout << datasets.size() << std::endl;
+
     //printDataset(datasets);
-    printIndexes(indexes);
+    //printIndexes(indexes);
 
     individual ind; 
     createIndividual(&ind ,&random_generator, &indexes, &datasets);
     
-    printIndividual(ind);  
+    //printIndividual(ind);  
    
     population_heap population;
     initializePopulation(500, &population, &random_generator, &indexes, &datasets);
 
-    std::cout << population.size() << std::endl;
+    //std::cout << population.size() << std::endl;
 
-    std::cout << datasets.size() << std::endl;
+    std::pair<individual, individual> parents = chooseParents(&population);
+
+    printIndividual(parents.first);
+    printIndividual(parents.second);
+
 }
 
