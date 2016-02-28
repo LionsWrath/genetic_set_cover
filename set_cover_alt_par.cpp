@@ -134,6 +134,12 @@ void testRandomGenerator(std::mt19937 * random_generator, int generations) {
     std::cout << std::endl;
 }
 
+double convergenceRate(population_set * population) {
+    double distance = population->begin()->fitness - population->rbegin()->fitness;
+
+    return (distance/population->begin()->fitness)*100;
+}
+
 double individualWeight(individual * ind, data * datasets) {
     std::set<int> unique_set;
     double weight = 0;
@@ -328,8 +334,9 @@ int main() {
     initializePopulation(500, &population, &random_generator, &indexes, &datasets);
 
     int i = 0;
+    individual best = *(population.rbegin());
 
-    while (i != 10000) {
+    while (i != 1000) {
         std::cout << "cycle: " << i << std::endl;
         std::pair<individual, individual> parents = chooseParents(&population, &random_generator);
 
@@ -352,10 +359,13 @@ int main() {
 
         managePopulation(&parents, &children, &population);
 
+        if (population.rbegin()->fitness < best.fitness)
+            best = *(population.rbegin());
+
         i++;
     }
 
     individual ind = *(population.rbegin());
-    std::cout << individualWeight(&(ind), &datasets) << std::endl;
+    std::cout << individualWeight(&ind, &datasets) << " " << convergenceRate(&population)<< std::endl;
 }
 
