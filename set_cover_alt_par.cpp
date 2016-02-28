@@ -48,7 +48,11 @@ typedef std::vector<set> data;
 
 int N, M;
 
-std::mt19937 random_generator(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+//std::random_device rd;
+std::mt19937::result_type seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+std::mt19937::result_type testseed = 5896541236589856;
+
+std::mt19937 random_generator(testseed);
 std::uniform_int_distribution<int> distribution(0,100);
 std::uniform_real_distribution<double> real_distribution(0,1);
 
@@ -169,7 +173,6 @@ double individualWeight(individual * ind, data * datasets) {
     return weight;
 }
 
-//Test 
 void optimizeIndividual(individual * ind, data * datasets) {
      std::priority_queue<std::pair<int,set>, std::vector< std::pair<int,set> >, optComparison> red_set;
      std::set<int> unique_set;
@@ -263,7 +266,6 @@ void crossover1(individual_pair * parents, data * datasets,
         children->second.chromossome.at(k) = parents->first.chromossome[k];
     }
 
-    //Testing
     optimizeIndividual(&(children->first), datasets);
     optimizeIndividual(&(children->second), datasets);
 
@@ -276,13 +278,12 @@ void crossover(individual_pair * parents, data * datasets,
         individual_pair * children) {
 
     for (int k = 0; k<N; k++) {
-        if (random_generator() % 100 > 49) {
+        if (dice_rand() > 49) {
             children->first.chromossome.at(k) = parents->second.chromossome[k];
             children->second.chromossome.at(k) = parents->first.chromossome[k]; 
         }
     }
 
-    //Testing
     optimizeIndividual(&(children->first), datasets);
     optimizeIndividual(&(children->second), datasets);
 
@@ -311,19 +312,20 @@ void mutation(individual * children, set_index * indexes, data * datasets, int t
 }
 
 //steady_state management
-void managePopulation(individual_pair * parents, individual_pair * children, population_set * population) {
+void managePopulation(individual_pair * parents, individual_pair * children, population_set * population, 
+        set_index * indexes, data * datasets) {
     population_heap steady_state;
 
     steady_state.push(parents->first);
     steady_state.push(parents->second);
     steady_state.push(children->first);
     steady_state.push(children->second);
-    
-    steady_state.push(*population->begin());
-    population->erase(population->begin()); 
 
-    steady_state.push(*population->begin());
-    population->erase(population->begin());
+    //steady_state.push(*population->rbegin());
+    //steady_state.push(*population->rbegin());
+
+    //population->clear();
+    initializePopulation(250, population, indexes, datasets);
 
     population->insert(steady_state.top());
     steady_state.pop();
@@ -348,7 +350,10 @@ void printStatus(individual_pair * parents, individual_pair * children) {
 
 int main() {
     data datasets;
-    set_index indexes = readFile("test_01.dat", &datasets);
+    set_index indexes = readFile("test_03.dat", &datasets);
+
+    std::cout << "Seed: " << seed << std::endl;
+    std::cout << "Seed de Teste: " << testseed << std::endl;
 
     population_set population;
     initializePopulation(500, &population, &indexes, &datasets);
@@ -358,7 +363,7 @@ int main() {
     double limit = 80.0f;
 
     while (i != 1000 && r < limit) {
-        std::cout << "cycle: " << i << std::endl;
+        std::cout << "cycle: " << i << " Convergence: " << r <<std::endl;
         
         individual_pair parents = chooseParents(&population);
 
@@ -368,7 +373,7 @@ int main() {
         mutation(&(children.first), &indexes, &datasets, 5/(limit/100));
         mutation(&(children.second), &indexes, &datasets, 5/(limit/100));
 
-        managePopulation(&parents, &children, &population);
+        managePopulation(&parents, &children, &population, &indexes, &datasets);
 
         r = convergenceRate(&population);
 
