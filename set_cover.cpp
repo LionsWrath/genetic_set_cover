@@ -9,6 +9,8 @@
 #include <set>
 #include <chrono>
 #include <functional>
+#include <time.h>
+#include <sys/time.h>
 
 typedef struct{
     std::vector<int> chromossome;
@@ -40,11 +42,35 @@ class optComparison {
 };
 
 typedef std::priority_queue<individual,std::vector<individual>,comparison> population_heap;
-typedef std::pair<individual,individual> individual_pair;
+typedef std::multiset<individual, comparison> population_set;
+
+typedef std::pair<individual, individual> individual_pair;
 typedef std::vector< std::vector<int> > set_index;
 typedef std::vector<set> data;
 
 int N, M;
+
+std::mt19937::result_type seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+std::mt19937::result_type testseed = 5896541236589856;
+
+std::mt19937 random_generator(seed);
+std::uniform_int_distribution<int> distribution(0,100);
+std::uniform_real_distribution<double> real_distribution(0,1);
+
+auto real_rand = std::bind(real_distribution, random_generator);
+auto dice_rand = std::bind(distribution, random_generator);
+
+double get_wall_time(){
+    struct timeval time;
+    if (gettimeofday(&time,NULL)){
+        return 0;
+    }
+    return (double)time.tv_sec + (double)time.tv_usec * .000001;
+}
+
+double get_cpu_time(){
+    return (double)clock() / CLOCKS_PER_SEC;
+}
 
 void toCString(char** cstr, std::string* str) {
     *cstr = new char [str->length()+1];
@@ -105,7 +131,7 @@ set_index readFile(std::string filename, data* datasets) {
 void printDataset(data dataset) {
     for (auto s : dataset) {
         for (auto i : s.setValues)
-            std::cout << i << std::endl;
+            std::cout << i << " ";
         std::cout << s.weight << std::endl;
     }
 }
@@ -118,6 +144,7 @@ void printIndividual(individual ind) {
 
 void printIndexes(set_index indexes) {
     for (auto vec : indexes) {
+        std::cout << "Individual: " << std::endl;
         for (auto i : vec)
             std::cout << i << " ";
 
@@ -126,9 +153,24 @@ void printIndexes(set_index indexes) {
     std::cout << "end" << std::endl;
 }
 
-void testRandomGenerator(std::mt19937 * random_generator, int generations) { 
+void printPopulation(population_set population) {
+    for (auto i : population) {
+        for (auto j : i.chromossome)
+            std::cout << j << " ";
+        std::cout << std::endl << i.fitness << std::endl;
+    }
+}
+
+void testRandomGenerator(int generations) { 
     for (int i=0; i< generations; i++)
-        std::cout << " " << (*random_generator)() << " ";
+        std::cout << " " << random_generator() << " ";
+    std::cout << std::endl;
+}
+
+double convergenceRate(population_set * population) {
+    double distance = population->begin()->fitness - population->rbegin()->fitness;
+
+    return 100 - (distance/population->begin()->fitness)*100;
 }
 
 double individualWeight(individual * ind, data * datasets) {
@@ -144,7 +186,6 @@ double individualWeight(individual * ind, data * datasets) {
     return weight;
 }
 
-//Test 
 void optimizeIndividual(individual * ind, data * datasets) {
      std::priority_queue<std::pair<int,set>, std::vector< std::pair<int,set> >, optComparison> red_set;
      std::set<int> unique_set;
@@ -169,51 +210,85 @@ void calculateFitness(data * datasets, individual * ind) {
     for (int i : ind->chromossome)
         unique_set.insert(i);
 
-    std::cout << "FIT: " << unique_set.size() << " " << ind->chromossome.size() << std::endl;
-
     ind->fitness = 0;
     for (int i : unique_set) {
         ind->fitness += datasets->at(i).fitness;
     }
 }
 
-void createIndividual(individual * new_ind, std::mt19937 * random_generator, set_index * indexes, 
-        data * datasets) {
-    double weight = 0;
-    double elements = 0;
-    
+void createIndividual(individual * new_ind, set_index * indexes, data * datasets) {
+   
     for (int i=0; i<N; i++) {
-        int set_value = indexes->at(i)[(*random_generator)() % indexes->at(i).size()];
+        int set_value = indexes->at(i)[dice_rand() % indexes->at(i).size()];
         new_ind->chromossome.push_back(set_value);
     }
-
-    //Test
+    
     optimizeIndividual(new_ind, datasets);
     calculateFitness(datasets, new_ind);
 }
 
-void initializePopulation(int size, population_heap * population, std::mt19937 * random_generator, 
-        set_index * indexes, data * datasets) {
+void initializePopulation(int size, population_set * population, set_index * indexes, data * datasets) {
+
     for (int i=0; i<size; i++) {
         individual new_ind;
-        createIndividual(&new_ind, random_generator, indexes, datasets); 
-        population->push(new_ind);
+        createIndividual(&new_ind, indexes, datasets); 
+        population->insert(new_ind);
     }
 }
 
-std::pair<individual,individual> chooseParents(population_heap * population) {
-    individual par1 = population->top();
-    population->pop();
-    individual par2 = population->top();
-    population->pop();
+individual_pair chooseParents(population_set * population) {
+    std::vector<std::pair<double, individual>> probability_vector;
+
+    double total_fitness = 0.0f;
+    individual par1, par2;
+
+    for (auto i : *population) 
+        total_fitness += i.fitness;
+
+    double acc = 0.0f;
+    for (auto s : *population) {
+        acc += s.fitness/total_fitness;
+        probability_vector.push_back(std::make_pair(acc, s));
+    }
+
+    double s1 = real_rand();
+    double s2 = real_rand();
+
+    double last = 0.0f;
+    for (int i = 0; i < probability_vector.size(); i++) { 
+        if (last < s1 && probability_vector[i].first >= s1) {
+            par1 = probability_vector[i].second;
+        }
+        if (last < s2 && probability_vector[i].first >= s2) {
+            par2 = probability_vector[i].second;
+        }
+        last = probability_vector[i].first;
+    }
+
+
 
     return std::make_pair(par1,par2);
 }
 
+individual_pair chooseParents1(population_set * population) {
+    individual par1, par2;
+    int choose1 = random_generator() % population->size();
+    int choose2 = random_generator() % population->size();
+
+    int i = 0;
+    for (auto s : *population) {
+        if (i == choose1)
+            par1 = s;
+        if (i == choose2)
+            par2 = s;
+        i++;
+    }
+}
+
 //One-Point Crossover
-void crossover1(std::pair<individual, individual> * parents, data * datasets, 
-        std::mt19937 * random_generator, std::pair<individual, individual> * children) {
-    int k = (*random_generator)() % N;
+void crossover1(individual_pair * parents, data * datasets, 
+        individual_pair * children) {
+    int k = random_generator() % N;
 
     std::cout << "Random: "<< k << std::endl;
     for (k; k<N; k++) {
@@ -221,7 +296,6 @@ void crossover1(std::pair<individual, individual> * parents, data * datasets,
         children->second.chromossome.at(k) = parents->first.chromossome[k];
     }
 
-    //Testing
     optimizeIndividual(&(children->first), datasets);
     optimizeIndividual(&(children->second), datasets);
 
@@ -230,17 +304,16 @@ void crossover1(std::pair<individual, individual> * parents, data * datasets,
 }
 
 //Uniform Crossover
-void crossover(std::pair<individual, individual> * parents, data * datasets, 
-        std::mt19937 * random_generator, std::pair<individual, individual> * children) {
+void crossover(individual_pair * parents, data * datasets, 
+        individual_pair * children) {
 
     for (int k = 0; k<N; k++) {
-        if ((*random_generator)() % 100 > 49) {
+        if (dice_rand() > 49) {
             children->first.chromossome.at(k) = parents->second.chromossome[k];
             children->second.chromossome.at(k) = parents->first.chromossome[k]; 
         }
     }
 
-    //Testing
     optimizeIndividual(&(children->first), datasets);
     optimizeIndividual(&(children->second), datasets);
 
@@ -249,19 +322,19 @@ void crossover(std::pair<individual, individual> * parents, data * datasets,
 }
 
 //Can be better -- not changing
-void mutation(std::mt19937 * random_generator, individual * children, set_index * indexes, data * datasets) {
-    if ((*random_generator)() % 100 < (5)) {
-        int set_index = (*random_generator)() % N;
+void mutation(individual * children, set_index * indexes, data * datasets, int tx) {
+    if (dice_rand() < tx) {
+        int set_index = random_generator() % N;
         int set_size = indexes->at(set_index).size();
 
-        printIndividual(*children);
+        //printIndividual(*children);
 
         int set_actual = children->chromossome.at(set_index);
-        int set_change = (*random_generator)() % set_size;
+        int set_change = random_generator() % set_size;
         children->chromossome.at(set_index) = indexes->at(set_index)[ set_change ];
 
-        std::cout << "MUTATE: " << set_index << " FROM: " << set_actual << " TO: " 
-            << indexes->at(set_index)[set_change] << std::endl;
+        //std::cout << "MUTATE: " << set_index << " FROM: " << set_actual << " TO: " 
+        //    << indexes->at(set_index)[set_change] << std::endl;
 
         optimizeIndividual(children, datasets);
         calculateFitness(datasets, children);
@@ -269,8 +342,8 @@ void mutation(std::mt19937 * random_generator, individual * children, set_index 
 }
 
 //steady_state management
-void managePopulation(std::pair<individual, individual> * parents, std::pair<individual, individual> * children, 
-        population_heap * population) {
+void managePopulation(individual_pair * parents, individual_pair * children, population_set * population, 
+        set_index * indexes, data * datasets) {
     population_heap steady_state;
 
     steady_state.push(parents->first);
@@ -278,56 +351,81 @@ void managePopulation(std::pair<individual, individual> * parents, std::pair<ind
     steady_state.push(children->first);
     steady_state.push(children->second);
 
-    //steady_state.pop();
-    //steady_state.pop();
-    population->push(steady_state.top());
-    steady_state.pop();
-    population->push(steady_state.top());
+    //steady_state.push(*population->rbegin());
+    //steady_state.push(*population->rbegin());
 
+    //population->clear();
+    //initializePopulation(350, population, indexes, datasets);
+
+    population->insert(steady_state.top());
+    steady_state.pop();
+    population->insert(steady_state.top());
+    steady_state.pop();
+    population->insert(steady_state.top());
+    //steady_state.pop();
+    //population->insert(steady_state.top());
+}
+
+void printStatus(individual_pair * parents, individual_pair * children) {
+    std::cout << "Parents>>>>>>>>>>>" << std::endl;
+    printIndividual(parents->first);
+    printIndividual(parents->second);
+
+    std::cout << "Children>>>>>>>>>>" << std::endl;
+    printIndividual(children->first);
+    printIndividual(children->second);
+
+    std::cout << "------------------" << std::endl;
 }
 
 int main() {
-    std::mt19937::result_type seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-    std::mt19937::result_type testseed = 1598659863;
-    std::mt19937 random_generator(testseed);
-
-    testRandomGenerator(&random_generator, 50);
+    std::string filename;
+    std::cin >> filename;
 
     data datasets;
-    set_index indexes = readFile("test_01.dat", &datasets);
+    set_index indexes = readFile(filename, &datasets);
 
-    population_heap population;
-    initializePopulation(500, &population, &random_generator, &indexes, &datasets);
+    std::cout << "Seed: " << seed << std::endl;
 
+    //Medição de tempo
+    double wall0 = get_wall_time();
+    double cpu0  = get_cpu_time();
+
+    population_set population;
+    initializePopulation(1000, &population, &indexes, &datasets);
+    
     int i = 0;
+    double r, initial = convergenceRate(&population);
+    double limit = 80.0f;
 
-    while (i != 1000) {
-        std::cout << "cycle: " << i << std::endl;
-        std::pair<individual, individual> parents = chooseParents(&population);
+    while (i != 1000 && r < limit) {
+        //std::cout << "cycle: " << i << " Convergence: " << r <<std::endl;
+        
+        individual_pair parents = chooseParents(&population);
 
-        std::pair<individual, individual> children(parents);
+        individual_pair children(parents);
+        crossover(&parents, &datasets, &children);
 
-        crossover(&parents, &datasets, &random_generator, &children);
+        mutation(&(children.first), &indexes, &datasets, 5/(limit/100));
+        mutation(&(children.second), &indexes, &datasets, 5/(limit/100));
 
-        mutation(&random_generator, &(children.first), &indexes, &datasets);
-        mutation(&random_generator, &(children.second), &indexes, &datasets);
+        managePopulation(&parents, &children, &population, &indexes, &datasets);
 
-        std::cout << "Parents>>>>>>>>>>>" << std::endl;
-        printIndividual(parents.first);
-        printIndividual(parents.second);
+        r = convergenceRate(&population);
 
-        std::cout << "Children>>>>>>>>>>" << std::endl;
-        printIndividual(children.first);
-        printIndividual(children.second);
-
-        std::cout << "------------------" << std::endl;
-
-        managePopulation(&parents, &children, &population);
-
+        //printStatus(&parents, &children);
         i++;
     }
 
-    individual ind = population.top();
-    std::cout << individualWeight(&(ind), &datasets) << std::endl;
+    double wall1 = get_wall_time();
+    double cpu1  = get_cpu_time();
+    
+    individual ind = *(population.rbegin());
+    std::cout << individualWeight(&ind, &datasets) << std::endl;
+    printIndividual(ind);
+
+    std::cout << "Convergence: " << initial << " " << convergenceRate(&population)<< std::endl;
+    std::cout << "Wall Time: " << wall1 - wall0 << std::endl;
+    std::cout << "CPU Time: " << cpu1 - cpu0 << std::endl;
 }
 
